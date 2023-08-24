@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables file
+.env
+
+# Logs
+*.log
+
+# Database files
+*.db
+
+# Generated files and directories
+instance/
+*.pyc
+
+# IDE-specific files and directories
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Compiled Python files
+*.pyc
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Dependency directories
+venv/
