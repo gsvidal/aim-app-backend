@@ -30,4 +30,4 @@ instance/
 Thumbs.db
 
 # Dependency directories
-venv/
+.venv/
