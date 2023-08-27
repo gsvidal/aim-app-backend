@@ -7,7 +7,7 @@ from flask_cors import CORS
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from helpers import login_required
+from helpers import login_required, error_page
 from datetime import datetime
 
 # Configure application
@@ -69,11 +69,41 @@ def init_db():
 
 init_db()
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["POST"])
 def login():
     """Log user in"""
-    login_page_data = {"text": "Welcome from the server"}
-    return jsonify(login_page_data)
+
+    # Forget any user_id
+    session.clear()
+
+    username = request.json.get("username")
+    password = request.json.get("password")
+
+    def errorJson(dataType):
+        error_data = {"code": "403", "message": f"Must provide {dataType}"}
+        return jsonify(error_data), 403
+
+    # Ensure username was submitted
+    if not username:
+        return errorJson("username")
+
+    # Ensure password was submitted
+    elif not password:
+        return errorJson("password")
+
+    # Query database for username
+    rows = db.execute("SELECT * FROM users WHERE username = ?", username)
+
+    # Ensure username exists and password is correct
+    if len(rows) != 1 or not check_password_hash(rows[0]["hash"], password):
+        error_data = {"code": "403", "message": "Invalid username and/or password"}
+        return jsonify(error_data), 403
+
+    # In case username exists, remember which user has logged in
+    session["user_id"] = rows[0]["id"]
+
+    # Return success message
+    return jsonify({"message": "Logged in successfully"})
 
 # API:
 @app.route("/get_scores")
@@ -87,7 +117,7 @@ def get_transactions():
 @login_required
 def index():
     """Show my scores in dashboard"""
-    return NULL
+    return jsonify({"message": "Dashboard soon..."})
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -104,3 +134,6 @@ def logout():
 
     # Redirect user to login form
     return redirect("/")
+
+# if __name__ == "__main__":
+#     app.run(host='localhost', port=4000)
