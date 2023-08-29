@@ -1,21 +1,26 @@
 import os
 
 from cs50 import SQL
-from flask import Flask, flash, redirect, render_template, request, session, jsonify
+from flask import Flask, flash, redirect, render_template, request, session, jsonify, make_response
 from flask_session import Session
 from flask_cors import CORS
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from helpers import login_required, error_page
+from helpers import errorJson
 from datetime import datetime
+
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
+
 
 # Configure application
 app = Flask(__name__)
+app.config["JWT_SECRET_KEY"] = "your-secret-key"
+jwt = JWTManager(app)
+
 
 # Allow requests from specific origins
-CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
-
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173", "supports_credentials": True}})
 
 # Configure session to use filesystem (instead of signed cookies)
 app.config["SESSION_PERMANENT"] = False
@@ -42,8 +47,8 @@ def init_db():
         );
     """)
 
-     # Skills to insert, including new skills
-    skills_to_insert = ["aim", "reaction time", "new_skill_1", "new_skill_2"]
+    # Skills to insert, including new skills
+    skills_to_insert = ["aim", "reaction-time"]
     
     # Get existing skills from the database
     existing_skills = db.execute("SELECT name FROM skills")
@@ -69,71 +74,134 @@ def init_db():
 
 init_db()
 
+
 @app.route("/login", methods=["POST"])
 def login():
     """Log user in"""
 
-    # Forget any user_id
-    session.clear()
+    if request.method == "POST":
 
-    username = request.json.get("username")
-    password = request.json.get("password")
+        username = request.json.get("username")
+        password = request.json.get("password")
 
-    def errorJson(dataType):
-        error_data = {"code": "403", "message": f"Must provide {dataType}"}
-        return jsonify(error_data), 403
+        # Ensure username was submitted
+        if not username:
+            return errorJson("username")
 
-    # Ensure username was submitted
-    if not username:
-        return errorJson("username")
+        # Ensure password was submitted
+        elif not password:
+            return errorJson("password")
 
-    # Ensure password was submitted
-    elif not password:
-        return errorJson("password")
+        # Query database for username
+        rows = db.execute("SELECT * FROM users WHERE username = ?", username)
 
-    # Query database for username
-    rows = db.execute("SELECT * FROM users WHERE username = ?", username)
 
-    # Ensure username exists and password is correct
-    if len(rows) != 1 or not check_password_hash(rows[0]["hash"], password):
-        error_data = {"code": "403", "message": "Invalid username and/or password"}
-        return jsonify(error_data), 403
+        # Ensure username exists and password is correct
+        if len(rows) != 1 or not check_password_hash(rows[0]["password_hash"], password):
+            error_data = {"code": "403", "message": "Invalid username and/or password"}
+            return jsonify(error_data), 403
 
-    # In case username exists, remember which user has logged in
-    session["user_id"] = rows[0]["id"]
+        # Generate JWT token
+        access_token = create_access_token(identity=rows[0]["id"])
+        print(f"token backend login for {username}: {access_token}")
 
-    # Return success message
-    return jsonify({"message": "Logged in successfully"})
+        return jsonify({"access_token": access_token, "message": "Logged in successfully"})
+        
+
+
+@app.route("/register", methods=["POST"])
+def register():
+    if request.method == "POST":
+        username = request.json.get("username")
+        password = request.json.get("password")
+        confirmation = request.json.get("password-confirmation")
+
+        print(f"credentials: {username}, {password}, {confirmation}")
+
+        rows = db.execute("SELECT * FROM users WHERE username=?", username)
+
+        if username == "":
+            return errorJson("Username cannot be blank")
+        elif len(rows) > 0:
+            return errorJson("Username already exists, try another one")
+        if password == "":
+            return errorJson("Password cannot be blank")
+        elif password != confirmation:
+            return errorJson("Passwords do not match")
+
+        hashed_password = generate_password_hash(password, method="scrypt")
+
+        db.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", username, hashed_password)
+
+        rows_new = db.execute("SELECT * FROM users WHERE username=?", username)
+
+        # Generate JWT token
+        access_token = create_access_token(identity=rows_new[0]["id"])
+        print(f"token backend register for {username}: {access_token}")
+
+        return jsonify({"access_token": access_token, "message": "Registered successfully"})
+
+# Initialize the set for revoked tokens
+revoked_tokens = set()
+
+@app.route("/logout")
+@jwt_required()
+def logout():
+    """Log user out"""
+    current_user_id = get_jwt_identity()
+
+    # Revoke the JWT token for the current user
+    jti = get_jwt()["jti"]
+    revoked_tokens.add(jti)  # You need to define 'revoked_tokens' as a set or a storage mechanism
+
+    # Redirect user to login form
+    return jsonify({"message": "Logged out successfully"})
+
+@app.route("/")
+@jwt_required()
+def index():
+    current_user_id = get_jwt_identity()
+
+    """Show my scores in dashboard"""
+
+    users = db.execute("SELECT * FROM users WHERE id=?", current_user_id)
+
+    user_name = users[0]["username"]
+
+    scores = db.execute("SELECT * FROM scores WHERE user_id=?", current_user_id)
+
+    user_dash_data = db.execute("""
+        SELECT 
+            u.username AS username,
+            s.name AS skill_name,
+            s.id AS skill_id,
+            MAX(sc.score) AS best_score,
+            AVG(sc.score) AS avg_score,
+            MAX(CASE WHEN sc.timestamp = (SELECT MAX(timestamp) FROM scores WHERE user_id = ? AND skill_id = s.id) THEN sc.score ELSE NULL END) AS last_score
+        FROM
+            skills s
+        LEFT JOIN
+            scores sc ON s.id = sc.skill_id
+        JOIN
+            users u ON sc.user_id = u.id
+        WHERE
+            sc.user_id = ?
+        GROUP BY
+            u.username, s.name, s.id
+        ORDER BY
+            s.name;
+        """, current_user_id, current_user_id)
+
+    print(f"general scores: {scores}")
+    print(f"user_name for {user_name}: {user_name}")
+    print(f"user_scores for {user_name}: {user_dash_data}")
+    return jsonify({"user_name": user_name, "user_dash_data": user_dash_data})
+
 
 # API:
 @app.route("/get_scores")
-@login_required
 def get_transactions():
     # scores = db.execute(
     #     )
-    return NULL
 
-@app.route("/")
-@login_required
-def index():
-    """Show my scores in dashboard"""
-    return jsonify({"message": "Dashboard soon..."})
-
-
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    return NULL
-
-
-@app.route("/logout")
-def logout():
-    """Log user out"""
-
-    # Forget any user_id
-    session.clear()
-
-    # Redirect user to login form
-    return redirect("/")
-
-# if __name__ == "__main__":
-#     app.run(host='localhost', port=4000)
+    return jsonify({})

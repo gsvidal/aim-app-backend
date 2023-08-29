@@ -31,3 +31,6 @@ Thumbs.db
 
 # Dependency directories
 .venv/
+
+# Flask session data an cache
+flask_session
