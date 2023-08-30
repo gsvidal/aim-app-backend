@@ -43,22 +43,10 @@ def init_db():
     db.execute("""
         CREATE TABLE IF NOT EXISTS skills (
             id INTEGER PRIMARY KEY,
+            code TEXT NOT NULL,
             name TEXT NOT NULL
         );
     """)
-
-    # Skills to insert, including new skills
-    skills_to_insert = ["aim", "reaction-time"]
-    
-    # Get existing skills from the database
-    existing_skills = db.execute("SELECT name FROM skills")
-
-    # Filter out existing skills from skills_to_insert
-    new_skills = [skill for skill in skills_to_insert if skill not in (row['name'] for row in existing_skills)]
-
-    # Insert new skills
-    for skill_name in new_skills:
-        db.execute("INSERT INTO skills (name) VALUES (?)", skill_name)
 
     db.execute("""
         CREATE TABLE IF NOT EXISTS scores (
@@ -86,11 +74,11 @@ def login():
 
         # Ensure username was submitted
         if not username:
-            return errorJson("username")
+            return errorJson("Must provide username")
 
         # Ensure password was submitted
         elif not password:
-            return errorJson("password")
+            return errorJson("Must provide password")
 
         # Query database for username
         rows = db.execute("SELECT * FROM users WHERE username = ?", username)
@@ -116,14 +104,19 @@ def register():
         password = request.json.get("password")
         confirmation = request.json.get("password-confirmation")
 
-        print(f"credentials: {username}, {password}, {confirmation}")
-
+        print(f"credentials sent from frontend: {username}, {password}, {confirmation}")
+        
         rows = db.execute("SELECT * FROM users WHERE username=?", username)
+        print(f"rowsss: {rows}")
 
+        # Backend Validation
         if username == "":
             return errorJson("Username cannot be blank")
         elif len(rows) > 0:
             return errorJson("Username already exists, try another one")
+            
+        # TODO: Make validations for password contain at least a capital letter, a number and a symbol
+
         if password == "":
             return errorJson("Password cannot be blank")
         elif password != confirmation:
@@ -168,11 +161,13 @@ def index():
 
     user_name = users[0]["username"]
 
+    skills = db.execute("SELECT * FROM skills")
+
     scores = db.execute("SELECT * FROM scores WHERE user_id=?", current_user_id)
 
     user_dash_data = db.execute("""
         SELECT 
-            u.username AS username,
+            u.username AS user_name,
             s.name AS skill_name,
             s.id AS skill_id,
             MAX(sc.score) AS best_score,
@@ -195,7 +190,8 @@ def index():
     print(f"general scores: {scores}")
     print(f"user_name for {user_name}: {user_name}")
     print(f"user_scores for {user_name}: {user_dash_data}")
-    return jsonify({"user_name": user_name, "user_dash_data": user_dash_data})
+    print(f"skills_data: {skills}")
+    return jsonify({"user_name": user_name, "user_dash_data": user_dash_data, "skills_data": skills})
 
 
 # API:

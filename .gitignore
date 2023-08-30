@@ -34,3 +34,6 @@ Thumbs.db
 
 # Flask session data an cache
 flask_session
+
+# Queries
+queries.sql
