@@ -53,7 +53,7 @@ def init_db():
             id INTEGER PRIMARY KEY,
             user_id INTEGER NOT NULL,
             skill_id INTEGER NOT NULL,
-            score INTEGER NOT NULL,
+            score REAL NOT NULL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id),
             FOREIGN KEY(skill_id) REFERENCES skills(id)
@@ -153,6 +153,7 @@ def logout():
 @app.route("/")
 @jwt_required()
 def index():
+
     current_user_id = get_jwt_identity()
 
     """Show my scores in dashboard"""
@@ -170,7 +171,7 @@ def index():
             u.username AS user_name,
             s.name AS skill_name,
             s.id AS skill_id,
-            MAX(sc.score) AS best_score,
+            MIN(sc.score) AS best_score,
             AVG(sc.score) AS avg_score,
             MAX(CASE WHEN sc.timestamp = (SELECT MAX(timestamp) FROM scores WHERE user_id = ? AND skill_id = s.id) THEN sc.score ELSE NULL END) AS last_score
         FROM
@@ -187,17 +188,35 @@ def index():
             s.name;
         """, current_user_id, current_user_id)
 
-    print(f"general scores: {scores}")
-    print(f"user_name for {user_name}: {user_name}")
-    print(f"user_scores for {user_name}: {user_dash_data}")
-    print(f"skills_data: {skills}")
+    # print(f"general scores: {scores}")
+    # print(f"user_name for {user_name}: {user_name}")
+    # print(f"user_scores for {user_name}: {user_dash_data}")
+    # print(f"skills_data: {skills}")
     return jsonify({"user_name": user_name, "user_dash_data": user_dash_data, "skills_data": skills})
 
 
 # API:
-@app.route("/get_scores")
-def get_transactions():
-    # scores = db.execute(
-    #     )
+@app.route("/reaction-time", methods=["POST"]) # This could be /games to save all kind of game
+@jwt_required()  
+def reactionTime():
+    
+    if request.method == "POST":
+        try:
+            current_user_id = get_jwt_identity()
 
-    return jsonify({})
+            # Update:
+            skill_code = request.json.get("skill_code")
+            score = request.json.get("score")
+
+            # Get skill_id:
+            skills = db.execute("SELECT * FROM skills WHERE code=?", skill_code)
+            skill_id = skills[0]["id"]
+
+            # Inserting score
+            db.execute("INSERT INTO scores (user_id, skill_id, score) VALUES (?,?,?)", current_user_id, skill_id, score)
+
+            return jsonify({"code": 200, "message": "Your score was successfully saved"})
+
+        except Exception as e:
+
+            return jsonify({"code": 400, "message": "An error occurred. Please try again later."})     
