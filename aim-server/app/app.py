@@ -66,9 +66,7 @@ init_db()
 @app.route("/login", methods=["POST"])
 def login():
     """Log user in"""
-
     if request.method == "POST":
-
         username = request.json.get("username")
         password = request.json.get("password")
 
@@ -83,7 +81,6 @@ def login():
         # Query database for username
         rows = db.execute("SELECT * FROM users WHERE username = ?", username)
 
-
         # Ensure username exists and password is correct
         if len(rows) != 1 or not check_password_hash(rows[0]["password_hash"], password):
             error_data = {"code": "403", "message": "Invalid username and/or password"}
@@ -91,11 +88,10 @@ def login():
 
         # Generate JWT token
         access_token = create_access_token(identity=rows[0]["id"])
-        print(f"token backend login for {username}: {access_token}")
+        # print(f"token backend login for {username}: {access_token}")
 
         return jsonify({"access_token": access_token, "message": "Logged in successfully"})
         
-
 
 @app.route("/register", methods=["POST"])
 def register():
@@ -130,7 +126,7 @@ def register():
 
         # Generate JWT token
         access_token = create_access_token(identity=rows_new[0]["id"])
-        print(f"token backend register for {username}: {access_token}")
+        # print(f"token backend register for {username}: {access_token}")
 
         return jsonify({"access_token": access_token, "message": "Registered successfully"})
 
@@ -153,7 +149,6 @@ def logout():
 @app.route("/")
 @jwt_required()
 def index():
-
     current_user_id = get_jwt_identity()
 
     """Show my scores in dashboard"""
@@ -196,10 +191,9 @@ def index():
 
 
 # API:
-@app.route("/reaction-time", methods=["POST"]) # This could be /games to save all kind of game
+@app.route("/games", methods=["POST"]) # This could be /games to save all kind of game
 @jwt_required()  
-def reactionTime():
-    
+def games():
     if request.method == "POST":
         try:
             current_user_id = get_jwt_identity()
@@ -220,3 +214,4 @@ def reactionTime():
         except Exception as e:
 
             return jsonify({"code": 400, "message": "An error occurred. Please try again later."})     
+        
