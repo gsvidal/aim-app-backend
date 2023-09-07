@@ -7,7 +7,7 @@ from flask_cors import CORS
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from helpers import errorJson
+from helpers import errorJson, has_required_chars
 from datetime import datetime
 
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
@@ -93,6 +93,7 @@ def login():
         return jsonify({"access_token": access_token, "message": "Logged in successfully"})
         
 
+
 @app.route("/register", methods=["POST"])
 def register():
     if request.method == "POST":
@@ -108,14 +109,20 @@ def register():
         # Backend Validation
         if username == "":
             return errorJson("Username cannot be blank")
+        
         elif len(rows) > 0:
             return errorJson("Username already exists, try another one")
-            
-        # TODO: Make validations for password contain at least a capital letter, a number and a symbol
 
         if password == "":
             return errorJson("Password cannot be blank")
-        elif password != confirmation:
+        
+        if len(password) < 6:
+            return errorJson("Password must be at least 6 characters long")
+
+        if not has_required_chars(password):
+            return errorJson("Password must contain at least one uppercase letter, one digit, and one symbol")
+        
+        if password != confirmation:
             return errorJson("Passwords do not match")
 
         hashed_password = generate_password_hash(password, method="scrypt")
