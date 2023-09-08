@@ -196,6 +196,37 @@ def index():
     # print(f"skills_data: {skills}")
     return jsonify({"user_name": user_name, "user_dash_data": user_dash_data, "skills_data": skills})
 
+@app.route("/positions")
+@jwt_required()
+def positions():
+    current_user_id = get_jwt_identity()
+    """Show all users scores in positions"""
+
+    goal_reaction_time =  280
+    goal_aim = 700
+
+    
+    
+    # Getting average score for every user_id and skill_id
+    users_data = db.execute("""
+        SELECT
+        u.username AS user_name,
+        u.id AS user_id,
+        ROUND(AVG(CASE WHEN sk.code = 'reaction-time' THEN s.score ELSE NULL END),1) AS 'reaction_time',
+        ROUND(AVG(CASE WHEN sk.code = 'aim' THEN s.score ELSE NULL END),1) AS 'aim',
+        ROUND(
+            0.5 * ? / AVG(CASE WHEN sk.code = 'reaction-time' THEN s.score ELSE NULL END)
+            + 0.5 * ? / AVG(CASE WHEN sk.code = 'aim' THEN s.score ELSE NULL END)
+        ,3) AS total
+        FROM users u
+        JOIN scores s ON u.id = s.user_id
+        JOIN skills sk ON s.skill_id = sk.id
+        GROUP BY u.username
+        ORDER BY total DESC;
+            """, goal_reaction_time, goal_aim)
+
+    print(f"users data: {users_data}")
+    return jsonify({"users_data": users_data})
 
 # API:
 @app.route("/games", methods=["POST"]) # This could be /games to save all kind of game
@@ -216,7 +247,7 @@ def games():
             # Inserting score
             db.execute("INSERT INTO scores (user_id, skill_id, score) VALUES (?,?,?)", current_user_id, skill_id, score)
 
-            return jsonify({"code": 200, "message": "Your score was successfully saved"})
+            return jsonify({"code": 200, "message": "Your score was successfully saved!"})
 
         except Exception as e:
 
