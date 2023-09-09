@@ -1,14 +1,13 @@
 import os
 
 from cs50 import SQL
-from flask import Flask, flash, redirect, render_template, request, session, jsonify, make_response
+from flask import Flask, request, jsonify
 from flask_session import Session
 from flask_cors import CORS
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from helpers import errorJson, has_required_chars
-from datetime import datetime
 
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 
@@ -144,7 +143,6 @@ revoked_tokens = set()
 @jwt_required()
 def logout():
     """Log user out"""
-    current_user_id = get_jwt_identity()
 
     # Revoke the JWT token for the current user
     jti = get_jwt()["jti"]
@@ -152,6 +150,7 @@ def logout():
 
     # Redirect user to login form
     return jsonify({"message": "Logged out successfully"})
+
 
 @app.route("/")
 @jwt_required()
@@ -190,11 +189,8 @@ def index():
             s.name;
         """, current_user_id, current_user_id)
 
-    # print(f"general scores: {scores}")
-    # print(f"user_name for {user_name}: {user_name}")
-    # print(f"user_scores for {user_name}: {user_dash_data}")
-    # print(f"skills_data: {skills}")
     return jsonify({"user_name": user_name, "user_dash_data": user_dash_data, "skills_data": skills})
+
 
 @app.route("/positions")
 @jwt_required()
@@ -202,10 +198,8 @@ def positions():
     current_user_id = get_jwt_identity()
     """Show all users scores in positions"""
 
-    goal_reaction_time =  280
+    goal_reaction_time =  250
     goal_aim = 700
-
-    
     
     # Getting average score for every user_id and skill_id
     users_data = db.execute("""
@@ -225,10 +219,9 @@ def positions():
         ORDER BY total DESC;
             """, goal_reaction_time, goal_aim)
 
-    print(f"users data: {users_data}")
     return jsonify({"users_data": users_data})
 
-# API:
+
 @app.route("/games", methods=["POST"]) # This could be /games to save all kind of game
 @jwt_required()  
 def games():
