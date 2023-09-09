@@ -19,7 +19,7 @@ jwt = JWTManager(app)
 
 
 # Allow requests from specific origins
-CORS(app, resources={r"/*": {"origins": "http://localhost:5173", "supports_credentials": True}})
+CORS(app, resources={r"/*": {"origins": ["http://localhost:5173","https://www.gonzalovidal.dev"], "supports_credentials": True}})
 
 # Configure session to use filesystem (instead of signed cookies)
 app.config["SESSION_PERMANENT"] = False
