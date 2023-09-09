@@ -1,7 +1,0 @@
-cs50
-Flask
-Flask-Session
-requests
-werkzeug.security
-flask_jwt_extended
-flask_cors
