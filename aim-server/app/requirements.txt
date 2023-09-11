@@ -5,7 +5,7 @@ charset-normalizer==3.2.0
 click==8.1.7
 colorama==0.4.6
 cs50==9.2.5
-Flask==2.3.3
+Flask==2.2.5
 Flask-Cors==4.0.0
 Flask-JWT-Extended==4.5.2
 Flask-Session==0.5.0
