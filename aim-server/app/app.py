@@ -1,21 +1,17 @@
 import os
-import psycopg2
 
 from cs50 import SQL
 from flask import Flask, request, jsonify
 from flask_session import Session
 from flask_cors import CORS
-
 from werkzeug.security import check_password_hash, generate_password_hash
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
 
 from helpers import errorJson, has_required_chars
 
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
-
-
 # Configure application
 app = Flask(__name__)
-app.config["JWT_SECRET_KEY"] = "your-secret-key"
+app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY")
 jwt = JWTManager(app)
 
 
@@ -27,12 +23,14 @@ app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
-# Configure CS50 Library to use SQLite database
-# db = SQL("sqlite:///aim.db")
+db_username = os.environ.get("DB_USERNAME")
+db_password = os.environ.get("DB_PASSWORD")
+db_name = os.environ.get("DB_NAME")
+db_host = os.environ.get("DB_HOST")
 
 # Configure CS50 Library to use PostgreSQL database
 # db = SQL("postgresql://gonza:gonza-aim@localhost:5432/aim")
-db = SQL("postgresql://gonza:MZ14mkABWTEz6koaQGfINfEaLGahSlfc@dpg-cjvo6nh5mpss739vegh0-a/aimdb")
+db = SQL(f"postgresql://{db_username}:{db_password}@{db_host}/{db_name}")
 
 # Initialize database tables
 def init_db():
