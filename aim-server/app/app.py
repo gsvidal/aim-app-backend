@@ -31,8 +31,8 @@ Session(app)
 # db = SQL("sqlite:///aim.db")
 
 # Configure CS50 Library to use PostgreSQL database
-db = SQL("postgresql://gonza:gonza-aim@localhost:5432/aim")
-# db = SQL("postgres://gonza:jIT3Ts9w3QIuOYOfBDFsIXFdU1LgJK1k@dpg-cjvlaq15mpss73as01r0-a/aim_82u1")
+# db = SQL("postgresql://gonza:gonza-aim@localhost:5432/aim")
+db = SQL("postgresql://gonza:MZ14mkABWTEz6koaQGfINfEaLGahSlfc@dpg-cjvo6nh5mpss739vegh0-a/aimdb")
 
 # Initialize database tables
 def init_db():
@@ -242,8 +242,6 @@ def positions():
         GROUP BY u.id, u.username
         ORDER BY total DESC;
             """, goal_reaction_time, goal_aim)
-    
-    print(f"users: {users_data}")
 
     return jsonify({"users_data": users_data})
 
