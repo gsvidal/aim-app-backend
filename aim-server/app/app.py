@@ -1,4 +1,5 @@
 import os
+import psycopg2
 
 from cs50 import SQL
 from flask import Flask, request, jsonify
@@ -27,13 +28,17 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
 # Configure CS50 Library to use SQLite database
-db = SQL("sqlite:///aim.db")
+# db = SQL("sqlite:///aim.db")
+
+# Configure CS50 Library to use PostgreSQL database
+db = SQL("postgresql://gonza:gonza-aim@localhost:5432/aim")
+# db = SQL("postgres://gonza:jIT3Ts9w3QIuOYOfBDFsIXFdU1LgJK1k@dpg-cjvlaq15mpss73as01r0-a/aim_82u1")
 
 # Initialize database tables
 def init_db():
     db.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
+            id SERIAL PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL
         );
@@ -41,7 +46,7 @@ def init_db():
 
     db.execute("""
         CREATE TABLE IF NOT EXISTS skills (
-            id INTEGER PRIMARY KEY,
+            id SERIAL PRIMARY KEY,
             code TEXT NOT NULL,
             name TEXT NOT NULL
         );
@@ -49,17 +54,36 @@ def init_db():
 
     db.execute("""
         CREATE TABLE IF NOT EXISTS scores (
-            id INTEGER PRIMARY KEY,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
             skill_id INTEGER NOT NULL,
             score REAL NOT NULL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            timestamp TIMESTAMP DEFAULT NOW(),
             FOREIGN KEY(user_id) REFERENCES users(id),
             FOREIGN KEY(skill_id) REFERENCES skills(id)
         );
     """)
 
 init_db()
+
+def populate_skills():
+    skills_data = [
+        {"code": "reaction-time", "name": "Reaction Time"},
+        {"code": "aim", "name": "Aim"}
+        # Add more skills if needed
+    ]
+
+    for skill in skills_data:
+        # Check if the skill already exists in the table
+        existing_skill = db.execute("SELECT id FROM skills WHERE code = ?", skill["code"])
+        
+        if not existing_skill:
+            # Skill doesn't exist, so insert it
+            db.execute("INSERT INTO skills (code, name) VALUES (?, ?)", skill["code"], skill["name"])
+
+# Check if skills are already populated
+if not db.execute("SELECT * FROM skills"):
+    populate_skills()
 
 
 @app.route("/login", methods=["POST"])
@@ -124,7 +148,7 @@ def register():
         if password != confirmation:
             return errorJson("Passwords do not match")
 
-        hashed_password = generate_password_hash(password, method="scrypt")
+        hashed_password = generate_password_hash(password)
 
         db.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", username, hashed_password)
 
@@ -206,18 +230,20 @@ def positions():
         SELECT
         u.username AS user_name,
         u.id AS user_id,
-        ROUND(AVG(CASE WHEN sk.code = 'reaction-time' THEN s.score ELSE NULL END),1) AS 'reaction_time',
-        ROUND(AVG(CASE WHEN sk.code = 'aim' THEN s.score ELSE NULL END),1) AS 'aim',
+        ROUND(AVG(CASE WHEN sk.code = 'reaction-time' THEN s.score ELSE NULL END)::numeric, 1) AS reaction_time,
+        ROUND(AVG(CASE WHEN sk.code = 'aim' THEN s.score ELSE NULL END)::numeric, 1) AS aim,
         ROUND(
-            0.5 * ? / AVG(CASE WHEN sk.code = 'reaction-time' THEN s.score ELSE NULL END)
-            + 0.5 * ? / AVG(CASE WHEN sk.code = 'aim' THEN s.score ELSE NULL END)
+            0.5 * ? / AVG(CASE WHEN sk.code = 'reaction-time' THEN s.score ELSE NULL END)::numeric
+            + 0.5 * ? / AVG(CASE WHEN sk.code = 'aim' THEN s.score ELSE NULL END)::numeric
         ,3) AS total
         FROM users u
         JOIN scores s ON u.id = s.user_id
         JOIN skills sk ON s.skill_id = sk.id
-        GROUP BY u.username
+        GROUP BY u.id, u.username
         ORDER BY total DESC;
             """, goal_reaction_time, goal_aim)
+    
+    print(f"users: {users_data}")
 
     return jsonify({"users_data": users_data})
 
