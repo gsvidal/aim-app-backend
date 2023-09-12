@@ -12,6 +12,7 @@ from helpers import errorJson, has_required_chars
 # Configure application
 app = Flask(__name__)
 app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY")
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False  # Set the expiration time to never expire
 jwt = JWTManager(app)
 
 
